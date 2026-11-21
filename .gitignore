@@ -1,0 +1,18 @@
+# 构建产物 / 下载物
+toolchain/
+kernel/
+out/
+artifacts/
+Kernel.tar.gz
+build.log
+
+# layout/ 中间产物
+layout/gen/
+layout/include/
+layout/*.o
+layout/probe.dwarf.txt
+layout/offsets_dump.txt
+
+*.o
+*.tmp
+.DS_Store

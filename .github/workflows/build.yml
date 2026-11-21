@@ -1,0 +1,93 @@
+name: build
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_url:
+        description: "覆盖源码包 URL（留空则用 Release source-v1 的 Kernel.tar.gz）"
+        required: false
+        default: ""
+      jobs:
+        description: "并行编译任务数"
+        required: false
+        default: "4"
+      keep_vmlinux:
+        description: "额外上传未 strip 的 vmlinux（含 debug，约 1.5 GB）"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: kernel (4.19.113 / y2q)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            bc bison flex libssl-dev libelf-dev cpio kmod rsync zstd dwarves
+
+      - name: 腾磁盘
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL || true
+          df -h /
+
+      - name: 工具链缓存
+        id: tc
+        uses: actions/cache@v4
+        with:
+          path: toolchain
+          key: toolchain-clang10.0.6-gcc4.9-v1
+
+      - name: 拉工具链
+        if: steps.tc.outputs.cache-hit != 'true'
+        run: bash scripts/fetch-toolchain.sh
+
+      - name: 拉源码
+        env:
+          SOURCE_URL: ${{ inputs.source_url }}
+        run: bash scripts/fetch-source.sh
+
+      - name: 编译
+        env:
+          JOBS: ${{ inputs.jobs }}
+        run: |
+          set -o pipefail
+          bash scripts/build.sh 2>&1 | tee build.log
+
+      - name: 抽符号
+        run: |
+          bash scripts/symbols.sh
+          echo "--- target_symbols.h ---"
+          cat artifacts/target_symbols.h
+
+      - name: 结构体布局交叉核对（pahole）
+        run: bash scripts/dump-offsets.sh || true
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-out
+          path: |
+            artifacts/**
+            build.log
+          if-no-files-found: error
+
+      - name: 上传完整 vmlinux（可选）
+        if: ${{ inputs.keep_vmlinux }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: vmlinux-full
+          path: out/vmlinux
+          if-no-files-found: warn

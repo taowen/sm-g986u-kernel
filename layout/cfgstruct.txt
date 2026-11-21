@@ -1,0 +1,19 @@
+struct configfs_buffer {
+	size_t			count;
+	loff_t			pos;
+	char			* page;
+	struct configfs_item_operations	* ops;
+	struct mutex		mutex;
+	int			needs_read_fill;
+	bool			read_in_progress;
+	bool			write_in_progress;
+	char			*bin_buffer;
+	int			bin_buffer_size;
+	int			cb_max_size;
+	struct config_item	*item;
+	struct module		*owner;
+	union {
+		struct configfs_attribute	*attr;
+		struct configfs_bin_attribute	*bin_attr;
+	};
+};
