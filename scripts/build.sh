@@ -16,6 +16,9 @@ CLANG=$TC/clang-10/bin/clang
 
 mkdir -p "$OUT"
 
+# 让 scripts/setlocalversion 不去读外层仓库的 git（否则版本串会被追加 -g<hash>）
+: > kernel/.scmversion
+
 ARGS=(
 	ARCH=arm64
 	CROSS_COMPILE="$CROSS"
