@@ -29,7 +29,7 @@ publish `System.map`, `vmlinux` and a generated `target_symbols.h` — no Linux 
 | `System.map` | 完整符号表（`CONFIG_KALLSYMS_ALL=y`，含 `static` 符号） |
 | `Image` | 未压缩内核镜像 |
 | `vmlinux.stripped` | 去掉 debug 段的 `vmlinux`，可直接反汇编 |
-| `target_symbols.h` | 21 个关键符号相对 `_text` 的偏移，可直接贴进移植用的 `target.h` |
+| `target_symbols.h` | 24 个关键符号相对 `_text` 的偏移（**注意下面的局限说明，不能直接用于出厂固件**） |
 | `kallsyms-names.txt` | 按地址排序的符号名（用来和设备侧 `/proc/kallsyms` 对顺序） |
 | `config.diff` | 本次 `.config` 与设备 `/proc/config.gz` 的差异 |
 
@@ -90,6 +90,22 @@ diff <(awk '{print $3}' System.map) device-kallsyms-names.txt | head
 - 差很多 → 说明这棵树/这套工具链和出厂固件不是同一次构建，偏移不能直接用（但结构体偏移仍然有效）
 
 仓库里 `scripts/compare-kallsyms.sh` 就是干这个的。
+
+## 首次构建结果（2026-11-21，run 44867433642，17 分钟）
+
+| 项 | 结果 |
+|---|---|
+| 编译 | `make -j4` 通，`LD vmlinux` → `SYSMAP System.map` → `OBJCOPY Image`（51.8 MB / `System.map` 6.2 MB） |
+| 符号 | 24/24 全部命中（`_text` 起算，`_text = 0xffffff8008080000`） |
+| **配置一致性** | 本次 `.config` vs 设备 `/proc/config.gz`：只差 30 来行 `# CONFIG_XXX is not set` 注释 + 编译器版本行 → **defconfig 就是出厂配置** |
+| **结构体布局** | `pahole` 读这次 vmlinux 的 DWARF：`cred 0x7f8`、`comm 0x800`、`pi_blocked_on 0x8f8`、`mutex 0x40`、`nrbufs 0x60`、`configfs.bin_buffer 0x68` —— 与 `layout/offsets_verified.h` 逐项相同 |
+| 地址可用性 | ❌ 差一层 CFP 插桩（见上文），函数排布与出厂固件不同 |
+
+所以这个仓库现在的价值是：**证明结构体偏移正确 + 提供一份可复现的基线**，
+而不是「一键产出 `target.h` 地址」。真要地址，还是得从 `boot.img` 的 kallsyms 取。
+
+`Image` 里也能看出这层插桩的痕迹：三星的 `scripts/cfp/instrument.py` 会在每个函数入口/出口
+（`stp x29,x30` / `ldp x29,x30` 前后）预留 NOP 槽，那些 NOP 是定制编译器主动塞的，普通 clang 不生成。
 
 ## 结构体偏移（`layout/`）
 
