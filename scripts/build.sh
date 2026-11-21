@@ -25,6 +25,7 @@ ARGS=(
 	CC="$CLANG"
 	CLANG_TRIPLE=aarch64-linux-gnu-
 	LOCALVERSION="$LOCALVER"
+	HOSTCFLAGS=-fcommon
 	O="$OUT"
 )
 

@@ -6,7 +6,12 @@ TC=${TC:-$PWD/toolchain}
 mkdir -p "$TC"
 
 GCC_URL="https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/+archive/refs/heads/android10-release.tar.gz"
-CLANG_URL="https://github.com/Cyborg2017/prebuilts_clang_host_linux-x86_clang-r365631c/archive/refs/heads/master.tar.gz"
+# AOSP clang 10.0.5 (r377782c)。出厂固件用的是三星/高通私有工具链
+# "llvm-arm-toolchain-ship/10.0"，`clang --version` 报 10.0.6 for Android NDK，
+# 公开渠道拿不到；这里取最接近的 AOSP 10.0.x。
+# 若你有厂商 BSP 里的 toolchain/llvm-arm-toolchain-ship/10.0，直接放到
+# toolchain/clang-10/ 覆盖即可（脚本会跳过下载）。
+CLANG_URL="https://github.com/AOSP-10/prebuilts_clang_host_linux-x86_clang-r377782c/archive/refs/heads/10.tar.gz"
 
 if [ ! -x "$TC/gcc-4.9/bin/aarch64-linux-android-ld" ]; then
 	echo "==> gcc-4.9 binutils"
@@ -17,7 +22,7 @@ if [ ! -x "$TC/gcc-4.9/bin/aarch64-linux-android-ld" ]; then
 fi
 
 if [ ! -x "$TC/clang-10/bin/clang" ]; then
-	echo "==> clang 10.0.6 (AOSP clang-r365631c)"
+	echo "==> clang 10.0.5 (AOSP clang-r377782c)"
 	curl -fL --retry 3 --retry-delay 2 -o /tmp/clang-10.tar.gz "$CLANG_URL"
 	rm -rf /tmp/clang-10 "$TC/clang-10"
 	mkdir -p /tmp/clang-10
