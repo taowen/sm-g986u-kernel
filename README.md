@@ -43,13 +43,19 @@ publish `System.map`, `vmlinux` and a generated `target_symbols.h` — no Linux 
 Linux version 4.19.113-25305888 (dpi@SWDK6904) (clang version 10.0.6 for Android NDK) #1 SMP PREEMPT
 ```
 
-`arch/arm64/.../` 树的 `build_kernel.sh` 要求 `clang 10` + `aarch64-linux-android-4.9` 的 binutils。
-两者都不在 Ubuntu 仓库里，CI 直接下载：
+`build_kernel.sh` 要求 `toolchain/llvm-arm-toolchain-ship/10.0/bin/clang` + `aarch64-linux-android-4.9` 的 binutils。
 
-- clang **10.0.6** ← AOSP `clang-r365631c` 的 GitHub 镜像
-- binutils **4.9** ← `prebuilts/gcc/.../aarch64-linux-android-4.9`（googlesource `android10-release` 归档）
+- binutils **4.9** 好办：`prebuilts/gcc/.../aarch64-linux-android-4.9`（googlesource `android10-release`）公开可得
+- clang **10.0.6 for Android NDK** 是**三星/高通 BSP 里的私有构建**，公开渠道没有镜像。
+  这里用最接近的 **AOSP clang 10.0.5（r377782c）**：AOSP 侧 10.0.4 = r377782b、10.0.5 = r377782c，
+  10.0.6 只有厂商内部版本
 
-用 apt 的 clang-12 / gcc-11 也能编，但**函数排布会变，符号偏移就不可信了**，所以这里不省这一步。
+> **这是本项目已知的最大不确定性。** clang 补丁级不同 → 少数函数的内联/展开可能不同 → 符号偏移会差几十字节。
+> 如果你手上有厂商 BSP 的 `llvm-arm-toolchain-ship/10.0`，放到 `toolchain/clang-10/` 再跑一次，
+> 脚本检测到 `toolchain/clang-10/bin/clang` 存在就会跳过下载，产物才是严格同源。
+
+用 apt 的 clang-12 / gcc-11 也能编，但函数排布差得更远，符号偏移基本不可用，所以不省这一步。
+（顺带：`gcc 11` 的 `-fno-common` 默认值会让 4.19 的 `scripts/dtc` 链接失败，脚本里加了 `HOSTCFLAGS=-fcommon`。）
 
 ## 怎么跑
 
