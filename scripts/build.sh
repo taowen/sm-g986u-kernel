@@ -29,6 +29,21 @@ ARGS=(
 	O="$OUT"
 )
 
+# 三星的 CFP（Code Flow Protection）后处理需要：python2 + 打过补丁的编译器
+# （往函数入口/出口塞 NOP 的那版）。两者都拿不到，这里跳过链接后插桩，
+# 否则 vmlinux 链接完就断在 `python scripts/cfp/instrument.py`。
+if [ "${SKIP_CFP:-1}" = "1" ]; then
+	python3 - <<'EOF'
+p = 'kernel/scripts/link-vmlinux.sh'
+s = open(p, encoding='utf-8', errors='surrogateescape').read()
+old = 'if [ -n "${CONFIG_CFP}" ]; then'
+new = 'if [ -n "${CONFIG_CFP_CI_DISABLED}" ]; then  # CI: 缺厂商插桩工具链，跳过'
+if old in s and 'CONFIG_CFP_CI_DISABLED' not in s:
+    open(p, 'w', encoding='utf-8', errors='surrogateescape').write(s.replace(old, new, 1))
+    print('==> CFP post-link instrumentation disabled')
+EOF
+fi
+
 echo "==> defconfig (vendor/y2q_usa_singlew_defconfig)"
 make -C kernel "${ARGS[@]}" vendor/y2q_usa_singlew_defconfig
 

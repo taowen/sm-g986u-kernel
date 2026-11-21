@@ -50,9 +50,14 @@ Linux version 4.19.113-25305888 (dpi@SWDK6904) (clang version 10.0.6 for Android
   这里用最接近的 **AOSP clang 10.0.5（r377782c）**：AOSP 侧 10.0.4 = r377782b、10.0.5 = r377782c，
   10.0.6 只有厂商内部版本
 
-> **这是本项目已知的最大不确定性。** clang 补丁级不同 → 少数函数的内联/展开可能不同 → 符号偏移会差几十字节。
-> 如果你手上有厂商 BSP 的 `llvm-arm-toolchain-ship/10.0`，放到 `toolchain/clang-10/` 再跑一次，
-> 脚本检测到 `toolchain/clang-10/bin/clang` 存在就会跳过下载，产物才是严格同源。
+> **这是本项目已知的最大不确定性，而且不止工具链一处。** 三星这颗内核还带
+> `CONFIG_CFP=y` / `CONFIG_CFP_ROPP=y`：链接后要跑 `scripts/cfp/instrument.py` 往每个函数
+> 入口/出口的 NOP 槽里插桩，**而那版编译器（会主动塞 NOP 的定制 clang/gcc）和 python2 都拿不到**。
+> 本项目默认跳过这段插桩（`SKIP_CFP=1`，见 `scripts/build.sh`）。
+>
+> 结论：**产物里的符号偏移不能直接当 `target.h` 用** —— 缺插桩填充 + 工具链差一个补丁级，
+> 函数排布已经和出厂固件不同。它适合用来：确认符号是否存在、看 struct 布局、验证编译链、
+> 以及给以后拿到厂商工具链时做回归基线。**要精确偏移，仍然得从 `boot.img` 的 kallsyms 取。**
 
 用 apt 的 clang-12 / gcc-11 也能编，但函数排布差得更远，符号偏移基本不可用，所以不省这一步。
 （顺带：`gcc 11` 的 `-fno-common` 默认值会让 4.19 的 `scripts/dtc` 链接失败，脚本里加了 `HOSTCFLAGS=-fcommon`。）
