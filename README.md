@@ -75,8 +75,7 @@ gh run watch -R taowen/sm-g986u-kernel
 
 ## 怎么用产物（关键一步：验证同源）
 
-**同源代码 ≠ 同源二进制。** 编译器小版本、binutils、甚至链接顺序变了，函数地址就会漂。
-所以拿到 `System.map` 后必须先验证，再拿去当 `target.h`：
+**同源代码 ≠ 同源二进制。** 编译器小版本、binutils、插桩层任何一处不同，函数地址就会漂。
 
 ```bash
 # 设备侧：只取符号名（地址是 0，但名字和顺序是真的）
@@ -86,8 +85,11 @@ adb shell "cat /proc/kallsyms" | awk '{print $3}' > device-kallsyms-names.txt
 diff <(awk '{print $3}' System.map) device-kallsyms-names.txt | head
 ```
 
-- 两个列表**长度、顺序基本一致** → 链接布局一致，`target_symbols.h` 可用
-- 差很多 → 说明这棵树/这套工具链和出厂固件不是同一次构建，偏移不能直接用（但结构体偏移仍然有效）
+- 两个列表**长度、顺序基本一致** → 链接布局一致，偏移可信
+- 差很多 → 这棵树/这套工具链与出厂固件不是同一次构建（本项目实测就是这种情况）
+
+> 注意：本机 SM-G986U 上 `/proc/kallsyms` 对 `shell` 用户是**直接 `Permission denied`**（SELinux），
+> 连名字都读不到，所以这条验收在本机跑不了。能读到 kallsyms 的机型（或已有 root）才适用。
 
 仓库里 `scripts/compare-kallsyms.sh` 就是干这个的。
 
